@@ -1,6 +1,8 @@
 // +build ignore
 
-package basic
+package main
+
+import "fmt"
 
 //go:generate strobfus -filename $GOFILE -output ./basic.gen.go
 
@@ -20,4 +22,9 @@ var (
 		"bar",
 	}
 	arr2 = []string{"h", "g"}
+	arr3 = []string{"unique entry"}
 )
+
+func init() {
+	fmt.Println("This my init")
+}

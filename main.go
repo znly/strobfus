@@ -47,7 +47,7 @@ func init() {
 
 	{{- range .Variables }}
 	{
-		{{ if gt (len .Values) 1 -}}
+		{{ if .IsArray -}}
 		var __{{ .Name }} = [][]byte{
 		{{- range $i, $e := .Values }}
 			{
@@ -80,12 +80,14 @@ func init() {
 		{{- end }}
 	}
 	{{- end}}
+	{{ .InitCode }}
 }
 `
 
 type variable struct {
-	Name   string
-	Values [][]string
+	Name    string
+	Values  [][]string
+	IsArray bool
 }
 
 var (
@@ -134,6 +136,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	initCode := ""
 	variables := make([]*variable, 0)
 	astutil.Apply(f, func(c *astutil.Cursor) bool {
 		switch typ := c.Node().(type) {
@@ -145,14 +148,17 @@ func main() {
 						switch real := v.(type) {
 						case *ast.BasicLit:
 							if real.Kind == token.STRING && len(real.Value) > 2 {
+								obfuscated.IsArray = false
 								obfuscated.Values = [][]string{bytesToHex(aesgcm.Seal(nil, nonce, []byte(real.Value[1:len(real.Value)-1]), nil))}
 								variables = append(variables, obfuscated)
+
 								// vSpec.Comment = &ast.CommentGroup{List: []*ast.Comment{{Text: " // " + real.Value}}} // doesn't work yet
 								real.Value = `""`
 							}
 						case *ast.CompositeLit:
 							for _, elt := range real.Elts {
 								if inner, ok := elt.(*ast.BasicLit); ok && inner.Kind == token.STRING && len(inner.Value) > 2 {
+									obfuscated.IsArray = true
 									obfuscated.Values = append(obfuscated.Values, bytesToHex(aesgcm.Seal(nil, nonce, []byte(inner.Value[1:len(inner.Value)-1]), nil)))
 								}
 							}
@@ -164,6 +170,9 @@ func main() {
 			}
 		case *ast.FuncDecl:
 			if typ.Name.Name == "init" {
+				from := int(typ.Body.Lbrace)
+				to := int(typ.Body.Rbrace)
+				initCode = string(content[from-1 : to])
 				c.Delete()
 			}
 		}
@@ -212,10 +221,12 @@ func main() {
 	err = tmpl.Execute(writer, struct {
 		PrivateKey, Nonce []string
 		Variables         []*variable
+		InitCode          string
 	}{
 		PrivateKey: bytesToHex(key),
 		Nonce:      bytesToHex(nonce),
 		Variables:  variables,
+		InitCode:   initCode,
 	})
 	if err != nil {
 		log.Fatal(err)
