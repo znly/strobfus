@@ -2,14 +2,16 @@
 
 package main
 
-import "fmt"
-
 //go:generate strobfus -filename $GOFILE
+
+import "fmt"
 
 // a little comment
 var hello string
 
 var yolo = "poeut"
+
+var helloWorld = "hello\nworld"
 
 var arr = []string{
 	"a",
