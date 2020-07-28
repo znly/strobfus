@@ -4,6 +4,9 @@ package main
 
 //go:generate strobfus -filename $GOFILE
 
+// To generate this file deterministically, add the option '-seed foobar',
+// 'foobar' being a seed from which the AES keys will derive.
+
 import "fmt"
 
 // a little comment
