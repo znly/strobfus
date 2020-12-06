@@ -34,6 +34,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -156,14 +157,18 @@ func main() {
 						switch real := v.(type) {
 						case *ast.BasicLit:
 							if real.Kind == token.STRING && len(real.Value) > 2 {
-								obfuscated.Values = [][]string{bytesToHex(aesgcm.Seal(nil, nonce, []byte(real.Value[1:len(real.Value)-1]), nil))}
-								variables = append(variables, obfuscated)
-								real.Value = `"" // ` + real.Value[1:len(real.Value)-1]
+								if value, err := strconv.Unquote(real.Value); err == nil {
+									obfuscated.Values = [][]string{bytesToHex(aesgcm.Seal(nil, nonce, []byte(value), nil))}
+									variables = append(variables, obfuscated)
+									real.Value = `"" // ` + real.Value[1:len(real.Value)-1]
+								}
 							}
 						case *ast.CompositeLit:
 							for _, elt := range real.Elts {
 								if inner, ok := elt.(*ast.BasicLit); ok && inner.Kind == token.STRING && len(inner.Value) > 2 {
-									obfuscated.Values = append(obfuscated.Values, bytesToHex(aesgcm.Seal(nil, nonce, []byte(inner.Value[1:len(inner.Value)-1]), nil)))
+									if value, err := strconv.Unquote(inner.Value); err == nil {
+										obfuscated.Values = append(obfuscated.Values, bytesToHex(aesgcm.Seal(nil, nonce, []byte(value), nil)))
+									}
 								}
 							}
 							// TODO: find a way to add comments with the content of []string
